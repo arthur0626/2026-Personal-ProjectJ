@@ -1,0 +1,24 @@
+<!doctype html>
+<html lang="ko">
+  {% load socialaccount %}
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>로그인 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>로그인</h1>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+        <button type="submit">로그인</button>
+      </form>
+      <p><a href="{% url 'auth:register' %}">회원가입</a></p>
+      <p>
+        <a href="{% provider_login_url 'kakao' %}">Kakao로 로그인</a>
+      </p>
+    </main>
+  </body>
+</html>

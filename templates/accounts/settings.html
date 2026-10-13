@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>계정 설정 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>계정 설정</h1>
+      <dl>
+        <dt>사용자명</dt><dd>{{ user.username }}</dd>
+        <dt>이메일</dt><dd>{{ user.email|default:'설정되지 않음' }}</dd>
+      </dl>
+      <h2>소셜 계정</h2>
+      {% if social_accounts %}
+        <ul>
+          {% for account in social_accounts %}
+            <li>{{ account.provider }} (연결됨)</li>
+          {% endfor %}
+        </ul>
+        <a href="{% url 'socialaccount_connections' %}">소셜 계정 관리</a>
+      {% else %}
+        <p>연결된 소셜 계정이 없습니다.</p>
+      {% endif %}
+      <p><a href="{% url 'auth:kakao_connect' %}">Kakao 계정 연결</a></p>
+      <h2>비밀번호</h2>
+      {% if user.has_usable_password %}
+        <p>네이티브 비밀번호가 설정되어 있습니다.</p>
+      {% else %}
+        <p>비밀번호를 추가하면 Kakao 없이도 로그인할 수 있습니다.</p>
+        <form method="post">
+          {% csrf_token %}
+          {{ password_form.as_p }}
+          <button type="submit">비밀번호 추가</button>
+        </form>
+      {% endif %}
+      <a href="{% url 'accounts:dashboard' %}">대시보드로</a>
+    </main>
+  </body>
+</html>

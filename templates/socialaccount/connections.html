@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <title>소셜 계정 관리 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>소셜 계정 관리</h1>
+      {% if form.accounts %}
+        <form method="post">
+          {% csrf_token %}
+          {{ form.as_p }}
+          <button type="submit">선택한 계정 연결 해제</button>
+        </form>
+      {% else %}
+        <p>연결된 소셜 계정이 없습니다.</p>
+      {% endif %}
+      <a href="{% url 'auth:settings' %}">계정 설정으로</a>
+    </main>
+  </body>
+</html>

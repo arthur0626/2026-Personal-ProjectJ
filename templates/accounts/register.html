@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>회원가입 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>회원가입</h1>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">가입하기</button>
+      </form>
+      <p><a href="{% url 'auth:login' %}">로그인으로 돌아가기</a></p>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,22 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>대시보드 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>대시보드</h1>
+      <p>{{ user.username }}님, 로그인되었습니다.</p>
+      <nav>
+        <a href="{% url 'auth:settings' %}">계정 설정</a>
+        <a href="{% url 'accounts:home' %}">홈으로</a>
+      </nav>
+      <form method="post" action="{% url 'auth:logout' %}">
+        {% csrf_token %}
+        <button type="submit">로그아웃</button>
+      </form>
+    </main>
+  </body>
+</html>
