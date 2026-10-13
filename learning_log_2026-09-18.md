@@ -236,3 +236,68 @@ http://127.0.0.1:8000/accounts/social/kakao/login/callback/
 ```
 
 - 다음 단계는 Kakao 개발자 콘솔에 위 Redirect URI를 등록한 뒤, 로컬에서 신규 social login과 기존 native 계정 linking을 수동 검증하는 것이다.
+
+## 세션 종료 기록 — 2026-10-13
+
+### 오늘 한 것 — 인프라/운영 세팅 (Django 기능 구현 아님)
+
+Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 환경을
+정리하는 세션이었다.
+
+1. `prd_v4.md`, `AGENTS.md`, `README.md`를 기준으로 프로젝트 현황을
+   재확인하고, 작업 성격별 모델 추천(보안/정책 판단은 Opus, 반복 구현은
+   Sonnet 5)과 OpenAI Codex 대비 Claude Code 사용 기준을 정리했다.
+2. 토큰 절감 플러그인 `Ponytail`(DietrichGebert, MIT)을 조사했다. 바이너리가
+   아니라 `SKILL.md`/`AGENTS.md` 기반의 markdown 규칙 묶음이며, 코드 작성
+   전 "꼭 필요한가 → 기존 코드/표준 라이브러리로 되는가 → 최소 코드만"
+   체크리스트를 거치게 해 출력 토큰을 줄인다는 것을 확인했다. 설치는
+   아직 보류(owner 확인 후 진행).
+3. `.gitignore`에 `venv/`가 빠져 있던 것을 발견해 수정했다
+   (`venv/`, `media/`, `.vscode/`, `*.log`, `*.sqlite3` 등 추가).
+4. `git init` 후 기본 브랜치를 `main`으로 설정하고, 전체 추적 대상 파일에
+   실제 secret·API key·이메일·전화번호가 없는지 `git grep`으로 스캔해
+   확인했다 (`.env.example`은 빈 값/placeholder뿐, `settings.py`는 env
+   변수만 참조).
+5. 스캔 결과를 근거로 private/public 저장소를 분리하지 않고, 기존 public
+   저장소 `arthur0626/2026-Personal-ProjectJ` 하나에 전체를 백업하기로
+   결정했다.
+6. `gh` CLI는 설치에 `sudo` 비밀번호가 필요해 자동화할 수 없었다. 대신
+   `ssh-keygen`으로 `ed25519` 키를 생성하고 공개키를 GitHub에 등록해
+   `sudo` 없이 SSH 인증으로 push하는 방식을 사용했다.
+7. 첫 커밋(`Initial backup commit`)을 만들고
+   `git@github.com:arthur0626/2026-Personal-ProjectJ.git`로 push했다.
+8. Notion MCP 서버(`https://mcp.notion.com/mcp`, http transport)를
+   `claude mcp add`로 로컬 프로젝트 설정에 추가했다. 매일 작업물을
+   Notion에 자동 업로드(cron 스케줄)하는 것이 목표이며, 우선 OAuth
+   인증이 필요한 상태다.
+9. owner가 Milestone 3(계정 보안/연결 해제·재연결·탈퇴)을 가장 마지막
+   순서로 미루기로 결정했다.
+
+### 배운 내용
+
+- `claude mcp add`로 MCP 서버를 추가해도, 이미 실행 중인 세션은 시작
+  시점에 MCP 목록을 불러온 상태라 즉시 반영되지 않는다. 새 서버를
+  쓰려면 세션을 재시작하고 `/mcp`로 다시 확인해야 한다.
+- GitHub push 인증에 꼭 `gh` CLI가 필요한 것은 아니다. `sudo` 권한이
+  없어도 `ssh-keygen` + GitHub에 공개키 등록만으로 SSH push가 가능하다.
+- public 저장소에 올리기 전에는 `git grep`으로 `secret`, `client_id`,
+  `api_key`, 이메일/전화번호 패턴을 스캔해 실제 값인지 placeholder인지
+  확인하는 것이 안전하다. placeholder/변수명과 실제 유출 값은 구분해서
+  판단해야 한다.
+- 서드파티 Claude Code 플러그인(Ponytail 등)은 실행형 프로그램이 아니라
+  markdown 규칙(skill) 형태일 수 있으며, 이 경우 별도 시스템 권한을
+  요구하지 않는다.
+
+### 기억할 것
+
+- GitHub 백업 저장소: `arthur0626/2026-Personal-ProjectJ` (public, 단일
+  저장소로 운영, private/public 분리하지 않기로 결정).
+- GitHub push는 로컬에 생성한 `~/.ssh/id_ed25519` 키로 인증한다.
+- Notion 자동 업로드는 매일 cron 스케줄로 운영하기로 했고, 아직 OAuth
+  인증 전 단계다. 세션 재시작 → `/mcp` → Notion 로그인 순서로 이어간다.
+- Ponytail 플러그인은 아직 설치하지 않았다. owner 확인 후 설치 여부
+  결정.
+- Milestone 3(계정 보안 기능: 재연결, 마지막 로그인 수단 해제 방지,
+  탈퇴)은 다른 마일스톤을 먼저 진행한 뒤 가장 마지막에 진행하기로
+  결정했다. `AGENTS.md`/`prd_v4.md`의 "다음 마일스톤" 순서와 다르므로,
+  다음 작업 시작 시 이 순서 변경을 다시 확인한다.
