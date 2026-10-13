@@ -301,3 +301,60 @@ Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 �
   탈퇴)은 다른 마일스톤을 먼저 진행한 뒤 가장 마지막에 진행하기로
   결정했다. `AGENTS.md`/`prd_v4.md`의 "다음 마일스톤" 순서와 다르므로,
   다음 작업 시작 시 이 순서 변경을 다시 확인한다.
+
+## 학습 기록 — 2026-10-13 (Milestone 4 — Native blog)
+
+### 오늘 한 것
+
+1. Ponytail 플러그인(5.2.0)을 설치했고, `ccusage statusline`으로 상태줄에
+   토큰 사용량이 표시되는 것을 확인했다.
+2. `m4-blog` 브랜치에서 Milestone 4를 구현했다.
+   - `BlogPost` 모델: 제목, slug(고유), 요약, 본문, 상태(초안/발행됨),
+     공개 범위(공개/비공개), `published_at`.
+   - 공개 화면 `/blog/`, `/blog/<slug>/`.
+   - 관리 화면 `/blog/drafts/`: 목록, 새 글, 수정, 발행, 초안으로 되돌리기.
+   - 본문 렌더링 필터 `render_body`, admin 등록, 대시보드 "글 관리" 링크.
+3. 테스트 12개를 추가해 전체 24개가 PostgreSQL에서 통과했다.
+   `manage.py check`와 `makemigrations --check`도 통과했다.
+4. owner가 브라우저에서 직접 글 작성과 발행을 확인하고 Milestone 4를
+   승인했다.
+
+### 배운 내용
+
+- 공개/비공개 경계는 템플릿에서 숨기는 것이 아니라 queryset에서 강제한다.
+  공개 뷰는 `BlogPost.objects.public()` 하나만 사용하고, 이 메서드가
+  `status=published`와 `visibility=public`을 함께 요구한다.
+- 회원가입이 열려 있으면 "로그인한 사용자"와 "owner"는 다르다.
+  `login_required`만으로는 가입자 누구나 공개 블로그에 글을 올릴 수 있어서
+  `is_staff` 확인을 추가했다.
+- `user_passes_test`는 조건 실패 시 로그인 화면으로 보내는데, 로그인 화면이
+  이미 로그인한 사용자를 `next`로 되돌리면 redirect loop가 된다. 권한
+  부족은 `PermissionDenied`(403)로 처리하는 것이 맞다.
+- 다른 사용자의 글에 대한 접근은 403이 아니라 404로 응답한다.
+  `get_object_or_404(BlogPost, pk=pk, author=request.user)`처럼 조회 조건에
+  소유자를 넣으면 글의 존재 여부도 드러나지 않는다.
+- 상태를 바꾸는 동작(발행)은 `require_POST`와 CSRF 토큰으로 보호한다.
+  GET 링크로 만들면 링크 미리보기나 크롤러가 발행을 실행할 수 있다.
+- URL 패턴은 위에서부터 매칭되므로 `drafts/`를 `<slug:slug>/`보다 먼저
+  둔다. 그래도 slug가 `drafts`인 글은 접근할 수 없게 되므로 폼에서
+  예약어로 막았다.
+- 사용자 입력을 HTML로 렌더링할 때는 먼저 전부 escape하고, 허용할 구조만
+  직접 만든다. `mark_safe`는 escape가 끝난 조각에만 쓴다.
+- `on_delete=PROTECT`는 참조하는 데이터가 있으면 삭제 자체를 막는다.
+  `CASCADE`는 User를 지울 때 글까지 지우므로, 정책이 정해지기 전에는
+  `PROTECT`가 안전하다.
+- PostgreSQL은 `DESC` 정렬에서 `NULL`을 앞에 둔다. `-published_at` 정렬에서
+  초안(`published_at`이 NULL)이 관리 목록 맨 위에 오는 이유다.
+
+### 기억할 것
+
+- 글을 쓰려면 staff 계정이 필요하다. `createsuperuser`로 만들거나 admin에서
+  staff 권한을 부여한다.
+- 본문은 ``` 코드 블록만 지원한다. 제목, 링크, 굵은 글씨가 필요해지면
+  Markdown 라이브러리와 HTML sanitizer를 함께 도입한다.
+- slug는 직접 입력하며 영문, 숫자, `-`, `_`만 허용된다.
+- 태그, 글 삭제 화면, `source_submission`/`source_analysis` 연결은 아직
+  없다. 연결 필드는 Milestone 5·9에서 추가한다.
+- 탈퇴 시 글 처리 정책(삭제 또는 익명화)은 Milestone 3에서 결정한다.
+- 다음은 Milestone 5(Activity/Coding 도메인)이며 외부 연동이 필요 없다.
+  Milestone 3은 계속 마지막 순서다.
