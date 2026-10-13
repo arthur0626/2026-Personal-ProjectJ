@@ -8,7 +8,15 @@
   <body>
     <main>
       <h1>블로그</h1>
-      <p>아직 공개된 글이 없습니다. BlogPost 모델은 다음 마일스톤에서 추가됩니다.</p>
+      {% for post in posts %}
+        <article>
+          <h2><a href="{% url 'blog:detail' post.slug %}">{{ post.title }}</a></h2>
+          <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:'Y-m-d' }}</time>
+          <p>{{ post.excerpt }}</p>
+        </article>
+      {% empty %}
+        <p>아직 공개된 글이 없습니다.</p>
+      {% endfor %}
       <a href="{% url 'accounts:home' %}">홈으로</a>
     </main>
   </body>

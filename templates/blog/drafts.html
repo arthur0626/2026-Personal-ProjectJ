@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>글 관리 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>글 관리</h1>
+      <a href="{% url 'blog:new' %}">새 글 쓰기</a>
+      <ul>
+        {% for post in posts %}
+          <li>
+            <a href="{% url 'blog:edit' post.pk %}">{{ post.title }}</a>
+            — {{ post.get_status_display }} / {{ post.get_visibility_display }}
+          </li>
+        {% empty %}
+          <li>아직 작성한 글이 없습니다.</li>
+        {% endfor %}
+      </ul>
+      <a href="{% url 'accounts:dashboard' %}">대시보드로</a>
+    </main>
+  </body>
+</html>

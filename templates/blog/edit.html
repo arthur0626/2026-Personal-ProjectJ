@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ post.pk|yesno:'글 수정,새 글' }} | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>{{ post.pk|yesno:'글 수정,새 글' }}</h1>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">저장</button>
+      </form>
+      {% if post.pk %}
+        <p>상태: {{ post.get_status_display }}</p>
+        <a href="{% url 'blog:detail' post.slug %}">미리보기</a>
+        {% if post.status == 'draft' %}
+          <form method="post" action="{% url 'blog:publish' post.pk %}">
+            {% csrf_token %}
+            <button type="submit">발행</button>
+          </form>
+        {% else %}
+          <form method="post" action="{% url 'blog:unpublish' post.pk %}">
+            {% csrf_token %}
+            <button type="submit">초안으로 되돌리기</button>
+          </form>
+        {% endif %}
+      {% endif %}
+      <a href="{% url 'blog:drafts' %}">글 관리로</a>
+    </main>
+  </body>
+</html>

@@ -1,14 +1,23 @@
-<!doctype html>
+{% load blog_extras %}<!doctype html>
 <html lang="ko">
   <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
-    <title>{{ slug }} | Personal DevOS</title>
+    <meta name="description" content="{{ post.excerpt }}">
+    <title>{{ post.title }} | Personal DevOS</title>
+    <style>pre { overflow-x: auto; padding: 1em; background: #f4f4f4; }</style>
   </head>
   <body>
     <main>
-      <h1>게시글 준비 중</h1>
-      <p>요청한 slug: {{ slug }}</p>
+      <article>
+        <h1>{{ post.title }}</h1>
+        {% if post.published_at %}
+          <time datetime="{{ post.published_at|date:'c' }}">{{ post.published_at|date:'Y-m-d' }}</time>
+        {% else %}
+          <p>초안 미리보기 — 공개되지 않은 글입니다.</p>
+        {% endif %}
+        {{ post.body|render_body }}
+      </article>
       <a href="{% url 'blog:index' %}">블로그로</a>
     </main>
   </body>
