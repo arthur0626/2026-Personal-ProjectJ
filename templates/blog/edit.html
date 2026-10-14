@@ -4,13 +4,16 @@
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <title>{{ post.pk|yesno:'글 수정,새 글' }} | Personal DevOS</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.snow.css">
+    <style>#editor { min-height: 20em; } .ql-attach::after { content: '📎'; }</style>
   </head>
   <body>
     <main>
       <h1>{{ post.pk|yesno:'글 수정,새 글' }}</h1>
-      <form method="post">
+      <form method="post" id="post-form">
         {% csrf_token %}
         {{ form.as_p }}
+        <div id="editor"></div>
         <button type="submit">저장</button>
       </form>
       {% if post.pk %}
@@ -30,5 +33,61 @@
       {% endif %}
       <a href="{% url 'blog:drafts' %}">글 관리로</a>
     </main>
+    <script src="https://cdn.jsdelivr.net/npm/quill@2.0.3/dist/quill.js"></script>
+    <script>
+      // The textarea stays the submitted field; Quill edits a copy and writes back on submit.
+      const form = document.getElementById('post-form');
+      const body = form.elements.body;
+      // Hidden + required would block submit before the editor copies its HTML in.
+      Object.assign(body, { hidden: true, required: false });
+      const quill = new Quill('#editor', {
+        theme: 'snow',
+        modules: {
+          toolbar: {
+            container: [
+              [{ header: [1, 2, 3, false] }],
+              ['bold', 'italic', 'underline', 'strike'],
+              [{ align: [] }],
+              [{ list: 'ordered' }, { list: 'bullet' }, 'blockquote', 'code-block'],
+              ['link', 'image', 'attach'],
+            ],
+            handlers: { image: () => pick('image/*'), attach: () => pick('') },
+          },
+        },
+      });
+      quill.clipboard.dangerouslyPasteHTML(body.value);
+
+      function pick(accept) {
+        const input = Object.assign(document.createElement('input'), { type: 'file', accept });
+        input.onchange = () => input.files[0] && upload(input.files[0]);
+        input.click();
+      }
+
+      async function upload(file) {
+        const data = new FormData();
+        data.append('file', file);
+        const response = await fetch('{% url "blog:upload" %}', {
+          method: 'POST',
+          body: data,
+          headers: { 'X-CSRFToken': form.elements.csrfmiddlewaretoken.value },
+        });
+        const result = await response.json();
+        if (!response.ok) return alert(result.error);
+        const index = (quill.getSelection(true) || { index: quill.getLength() }).index;
+        if (result.is_image) {
+          quill.insertEmbed(index, 'image', result.url, 'user');
+          quill.setSelection(index + 1, 'user');
+        } else {
+          quill.insertText(index, result.name, 'link', result.url, 'user');
+          quill.setSelection(index + result.name.length, 'user');
+        }
+      }
+
+      form.addEventListener('submit', () => {
+        // shortcut: getSemanticHTML emits &nbsp; for spaces, which stops line wrapping;
+        // drop the replace if a newer Quill release fixes it.
+        body.value = quill.getSemanticHTML().replaceAll('&nbsp;', ' ');
+      });
+    </script>
   </body>
 </html>

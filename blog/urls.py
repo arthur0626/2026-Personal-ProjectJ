@@ -11,5 +11,8 @@ urlpatterns = [
     path('drafts/<int:pk>/', views.edit, name='edit'),
     path('drafts/<int:pk>/publish/', views.set_published, {'published': True}, name='publish'),
     path('drafts/<int:pk>/unpublish/', views.set_published, {'published': False}, name='unpublish'),
+    path('uploads/', views.upload, name='upload'),
+    path('comments/<int:pk>/delete/', views.comment_delete, name='comment_delete'),
     path('<slug:slug>/', views.detail, name='detail'),
+    path('<slug:slug>/comments/', views.comment_create, name='comment_create'),
 ]

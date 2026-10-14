@@ -2,8 +2,11 @@
 
 ## Source of truth
 
-`prd_v3.md` is the implementation source of truth. It preserves the product
-requirements in `prd_v2.md` and updates the development/deployment order.
+`prd_v5.md` is the implementation source of truth. It keeps the product
+requirements of `prd_v2.md`/`prd_v3.md` and the account policy of
+`prd_v4.md`, and sets the current milestone order (4.5a blog editor,
+attachments and comments before Milestone 5; account-security leftovers of
+Milestone 3 last).
 Work one milestone at a time and stop for owner confirmation at each
 milestone boundary.
 
@@ -44,7 +47,8 @@ Keep domain logic out of views and avoid circular app dependencies.
 
 Phase 1 includes native ID/password authentication, Kakao OAuth, account
 linking, a native Django blog, GitHub coding-activity ingestion, asynchronous
-LLM analysis, and owner review before publication.
+LLM analysis, and owner review before publication. v5 adds a rich-text blog
+editor with image/file attachments and member/guest comments.
 
 Do not implement WordPress, other external publishers, RAG/pgvector, news
 crawling, browser/Android/photo collectors, autonomous coding agents,

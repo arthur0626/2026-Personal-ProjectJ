@@ -1,10 +1,17 @@
+import importlib
+import shutil
+import tempfile
+from io import BytesIO
+
 from django.contrib.auth import get_user_model
-from django.test import TestCase
+from django.contrib.auth.hashers import check_password
+from django.core.files.uploadedfile import SimpleUploadedFile
+from django.test import TestCase, override_settings
 from django.urls import reverse
+from PIL import Image
 
 from .forms import BlogPostForm
-from .models import BlogPost
-from .templatetags.blog_extras import render_body
+from .models import Attachment, BlogPost, Comment
 
 
 class BlogTestCase(TestCase):
@@ -96,15 +103,146 @@ class DraftManagementTests(BlogTestCase):
 
     def test_slug_must_be_unique_and_not_reserved(self):
         self.make_post('taken')
-        for slug in ('taken', 'drafts'):
+        for slug in ('taken', 'drafts', 'uploads'):
             form = BlogPostForm({'title': 'T', 'slug': slug, 'body': 'B', 'visibility': 'public'})
             self.assertIn('slug', form.errors)
 
 
-class RenderBodyTests(TestCase):
+class BodySanitizeTests(BlogTestCase):
+    def test_save_strips_script_handlers_and_dangerous_urls(self):
+        post = self.make_post()
+        post.body = (
+            '<p class="ql-align-center evil" style="color:red" onclick="x()">hi</p>'
+            '<script>alert(1)</script><a href="javascript:alert(1)">a</a>'
+            '<img src="data:image/png;base64,AAAA" onerror="x()"><img src="/media/a.png">'
+        )
+        post.save()
+        self.assertIn('<p class="ql-align-center">hi</p>', post.body)
+        for bad in ('<script', 'onclick', 'onerror', 'style=', 'javascript:', 'data:', 'evil'):
+            self.assertNotIn(bad, post.body)
+        self.assertIn('<img src="/media/a.png">', post.body)
+
+    def test_published_body_is_rendered_as_html(self):
+        post = self.make_post('hello')
+        post.body = '<p><strong>bold</strong></p>'
+        post.publish()
+        self.assertContains(self.client.get(reverse('blog:detail', args=['hello'])),
+                            '<p><strong>bold</strong></p>', html=True)
+
+
+class PlaintextMigrationTests(TestCase):
     def test_escapes_html_and_renders_code_blocks(self):
-        html = render_body('intro <script>\n\n```python\nif a < b:\n    pass\n```\nafter')
+        migration = importlib.import_module('blog.migrations.0003_plaintext_body_to_html')
+        html = migration.plaintext_to_html('intro <script>\n\n```python\nif a < b:\n    pass\n```\nafter')
         self.assertIn('<p>intro &lt;script&gt;</p>', html)
         self.assertIn('<pre><code>if a &lt; b:\n    pass\n</code></pre>', html)
         self.assertIn('<p>after</p>', html)
         self.assertNotIn('<script>', html)
+
+
+class UploadTests(BlogTestCase):
+    def setUp(self):
+        super().setUp()
+        media = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, media)
+        settings = override_settings(MEDIA_ROOT=media)
+        settings.enable()
+        self.addCleanup(settings.disable)
+
+    def upload(self, name, content):
+        return self.client.post(reverse('blog:upload'), {'file': SimpleUploadedFile(name, content)})
+
+    def jpeg_with_gps(self):
+        exif = Image.Exif()
+        exif[0x8825] = {2: (37.0, 30.0, 0.0)}  # GPSInfo latitude
+        buffer = BytesIO()
+        Image.new('RGB', (4, 4), 'red').save(buffer, 'JPEG', exif=exif)
+        return buffer.getvalue()
+
+    def test_non_staff_cannot_upload(self):
+        self.client.force_login(get_user_model().objects.create_user(username='guest'))
+        self.assertEqual(self.upload('a.txt', b'x').status_code, 403)
+        self.assertFalse(Attachment.objects.exists())
+
+    def test_image_is_reencoded_without_exif(self):
+        self.client.force_login(self.owner)
+        data = self.jpeg_with_gps()
+        self.assertTrue(Image.open(BytesIO(data)).getexif())
+        response = self.upload('photo.jpeg', data)
+        self.assertEqual(response.status_code, 200)
+        self.assertTrue(response.json()['is_image'])
+        attachment = Attachment.objects.get()
+        with attachment.file.open('rb') as stored:
+            self.assertFalse(Image.open(stored).getexif())
+
+    def test_fake_image_and_script_files_are_rejected(self):
+        self.client.force_login(self.owner)
+        for name, content in (('x.png', b'<script>'), ('x.svg', b'<svg/>'), ('x.html', b'<p>')):
+            self.assertEqual(self.upload(name, content).status_code, 400, name)
+        self.assertFalse(Attachment.objects.exists())
+
+    def test_allowed_file_is_stored(self):
+        self.client.force_login(self.owner)
+        response = self.upload('solution.py', b'print(1)')
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.json()['name'], 'solution.py')
+        self.assertFalse(response.json()['is_image'])
+
+
+class CommentTests(BlogTestCase):
+    def setUp(self):
+        super().setUp()
+        self.post = self.make_post('hello')
+        self.post.publish()
+        self.url = reverse('blog:comment_create', args=['hello'])
+
+    def test_guest_comment_stores_hashed_password(self):
+        self.client.post(self.url, {'nickname': 'ㅇㅇ', 'password': '1234', 'body': '안녕'})
+        comment = Comment.objects.get()
+        self.assertTrue(comment.is_guest)
+        self.assertNotEqual(comment.password, '1234')
+        self.assertTrue(check_password('1234', comment.password))
+        self.assertContains(self.client.get(self.post.get_absolute_url()), '(비회원)')
+
+    def test_guest_needs_nickname_and_password(self):
+        response = self.client.post(self.url, {'body': '안녕'})
+        self.assertEqual(response.status_code, 400)
+        self.assertFalse(Comment.objects.exists())
+
+    def test_member_comments_as_self(self):
+        self.client.force_login(self.other)
+        self.client.post(self.url, {'nickname': 'owner', 'body': 'hi'})
+        comment = Comment.objects.get()
+        self.assertEqual((comment.user, comment.nickname, comment.password), (self.other, 'other', ''))
+
+    def test_honeypot_blocks_bots(self):
+        self.client.post(self.url, {'nickname': 'bot', 'password': 'x', 'body': 'spam', 'website': 'x'})
+        self.assertFalse(Comment.objects.exists())
+
+    def test_no_comments_on_draft_or_private_posts(self):
+        self.make_post('draft')
+        self.make_post('secret', visibility=BlogPost.Visibility.PRIVATE).publish()
+        for slug in ('draft', 'secret'):
+            url = reverse('blog:comment_create', args=[slug])
+            response = self.client.post(url, {'nickname': 'a', 'password': 'b', 'body': 'c'})
+            self.assertEqual(response.status_code, 404)
+        self.assertFalse(Comment.objects.exists())
+
+    def test_guest_delete_requires_password(self):
+        self.client.post(self.url, {'nickname': 'ㅇㅇ', 'password': '1234', 'body': '안녕'})
+        delete = reverse('blog:comment_delete', args=[Comment.objects.get().pk])
+        self.client.post(delete, {'password': 'wrong'})
+        self.assertTrue(Comment.objects.exists())
+        self.client.post(delete, {'password': '1234'})
+        self.assertFalse(Comment.objects.exists())
+
+    def test_member_cannot_delete_others_but_staff_can(self):
+        guest = get_user_model().objects.create_user(username='guest')
+        comment = Comment.objects.create(post=self.post, user=self.other, nickname='other', body='x')
+        delete = reverse('blog:comment_delete', args=[comment.pk])
+        self.client.force_login(guest)
+        self.client.post(delete)
+        self.assertTrue(Comment.objects.exists())
+        self.client.force_login(self.owner)
+        self.client.post(delete)
+        self.assertFalse(Comment.objects.exists())
