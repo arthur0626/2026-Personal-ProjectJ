@@ -1,0 +1,20 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>코딩 기록 추가 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>코딩 기록 추가</h1>
+      <p>문제 원문은 붙여넣지 말고 제목·번호·링크만 기록하세요.</p>
+      <form method="post">
+        {% csrf_token %}
+        {{ form.as_p }}
+        <button type="submit">저장</button>
+      </form>
+      <a href="{% url 'coding:index' %}">코딩 기록으로</a>
+    </main>
+  </body>
+</html>

@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>활동 타임라인 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>활동 타임라인</h1>
+      <ol>
+        {% for event in events %}
+          <li>
+            <time datetime="{{ event.occurred_at|date:'c' }}">{{ event.occurred_at|date:'Y-m-d H:i' }}</time>
+            {{ event.get_event_type_display }} ({{ event.get_source_display }})
+            {% if event.coding_submission %}
+              — <a href="{% url 'coding:detail' event.coding_submission.pk %}">{{ event.coding_submission }}</a>
+            {% endif %}
+          </li>
+        {% empty %}
+          <li>아직 활동이 없습니다.</li>
+        {% endfor %}
+      </ol>
+      <a href="{% url 'accounts:dashboard' %}">대시보드로</a>
+    </main>
+  </body>
+</html>

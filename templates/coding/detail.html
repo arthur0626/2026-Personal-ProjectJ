@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ submission.problem_title }} | Personal DevOS</title>
+    <style>pre { overflow-x: auto; padding: 1em; background: #f4f4f4; } dd { overflow-wrap: anywhere; }</style>
+  </head>
+  <body>
+    <main>
+      <h1>{{ submission }}</h1>
+      <dl>
+        <dt>문제 번호</dt><dd>{{ submission.problem_external_id|default:'-' }}</dd>
+        <dt>문제 링크</dt>
+        <dd>{% if submission.problem_url %}<a href="{{ submission.problem_url }}" rel="noopener noreferrer">{{ submission.problem_url }}</a>{% else %}-{% endif %}</dd>
+        <dt>언어</dt><dd>{{ submission.language }}</dd>
+        <dt>제출 시각</dt><dd>{{ submission.submitted_at|date:'Y-m-d H:i' }}</dd>
+        <dt>출처</dt><dd>{{ submission.activity_event.get_source_display }}</dd>
+        {% if submission.commit_sha %}
+          <dt>커밋</dt><dd>{{ submission.repository }}@{{ submission.commit_sha|truncatechars:12 }} {{ submission.file_path }}</dd>
+        {% endif %}
+      </dl>
+
+      <h2>소스 코드</h2>
+      <pre><code>{{ submission.source_code }}</code></pre>
+
+      <h2>AI 분석</h2>
+      {% for analysis in analyses %}
+        <section>
+          <p><strong>AI가 생성한 분석입니다. 사실이 아닐 수 있으니 검토가 필요합니다.</strong>
+            ({{ analysis.get_status_display }}{% if analysis.model_name %}, {{ analysis.model_name }}{% endif %})</p>
+          {% if analysis.summary %}<p>{{ analysis.summary }}</p>{% endif %}
+          {% if analysis.approach %}<h3>접근</h3><p>{{ analysis.approach }}</p>{% endif %}
+          {% if analysis.time_complexity or analysis.space_complexity %}
+            <p>시간 {{ analysis.time_complexity|default:'-' }} / 공간 {{ analysis.space_complexity|default:'-' }}</p>
+          {% endif %}
+          {% if analysis.key_concepts %}<p>핵심 개념: {{ analysis.key_concepts|join:', ' }}</p>{% endif %}
+        </section>
+      {% empty %}
+        <p>아직 분석이 없습니다. LLM 분석은 Milestone 8에서 연결됩니다.</p>
+      {% endfor %}
+      <a href="{% url 'coding:index' %}">코딩 기록으로</a>
+    </main>
+  </body>
+</html>

@@ -1,24 +1,13 @@
-from functools import wraps
-
 from django.contrib import messages
-from django.contrib.auth.decorators import login_required
-from django.core.exceptions import PermissionDenied, ValidationError
+from django.core.exceptions import ValidationError
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
 
+from common.decorators import owner_required
+
 from .forms import BlogPostForm, CommentForm, UploadForm
 from .models import Attachment, BlogPost, Comment
-
-
-def owner_required(view):
-    """Registration is open, so only staff accounts may author posts."""
-    @wraps(view)
-    def wrapper(request, *args, **kwargs):
-        if not request.user.is_staff:
-            raise PermissionDenied
-        return view(request, *args, **kwargs)
-    return login_required(wrapper)
 
 
 def index(request):

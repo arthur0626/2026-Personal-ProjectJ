@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>코딩 기록 | Personal DevOS</title>
+  </head>
+  <body>
+    <main>
+      <h1>코딩 기록</h1>
+      <a href="{% url 'coding:new' %}">직접 기록하기</a>
+      <ul>
+        {% for submission in submissions %}
+          <li>
+            <a href="{% url 'coding:detail' submission.pk %}">{{ submission }}</a>
+            — {{ submission.language }}, {{ submission.submitted_at|date:'Y-m-d H:i' }}
+          </li>
+        {% empty %}
+          <li>아직 코딩 기록이 없습니다.</li>
+        {% endfor %}
+      </ul>
+      <a href="{% url 'accounts:dashboard' %}">대시보드로</a>
+    </main>
+  </body>
+</html>

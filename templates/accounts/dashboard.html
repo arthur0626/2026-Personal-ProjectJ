@@ -10,7 +10,11 @@
       <h1>대시보드</h1>
       <p>{{ user.username }}님, 로그인되었습니다.</p>
       <nav>
-        {% if user.is_staff %}<a href="{% url 'blog:drafts' %}">글 관리</a>{% endif %}
+        {% if user.is_staff %}
+          <a href="{% url 'blog:drafts' %}">글 관리</a>
+          <a href="{% url 'coding:index' %}">코딩 기록</a>
+          <a href="{% url 'activity:timeline' %}">활동 타임라인</a>
+        {% endif %}
         <a href="{% url 'auth:settings' %}">계정 설정</a>
         <a href="{% url 'accounts:home' %}">홈으로</a>
       </nav>

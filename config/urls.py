@@ -9,5 +9,7 @@ urlpatterns = [
     path('accounts/social/', include('allauth.urls')),
     path('', include('accounts.urls')),
     path('blog/', include('blog.urls')),
+    path('coding/', include('coding.urls')),
+    path('activity/', include('activity.urls')),
     # Serves uploads only when DEBUG; production storage is decided in Milestone 11.
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

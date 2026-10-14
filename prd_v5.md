@@ -27,8 +27,8 @@
 | 2 | Native authentication | 완료 |
 | 3 | Kakao OAuth/linking 기본 흐름 | 완료 (잔여 보안 작업은 마지막) |
 | 4 | Native blog | 완료 |
-| 4.5a | 블로그 에디터·첨부·댓글 | 이번 작업 |
-| 5 | Activity and coding domain | 대기 |
+| 4.5a | 블로그 에디터·첨부·댓글 | 구현 완료 (`update`, owner 확인 대기) |
+| 5 | Activity and coding domain | 구현 완료 (`update`, owner 확인 대기) |
 | 6 | Celery foundation | 대기 |
 | 7 | GitHub webhook ingestion | 대기 |
 | 8 | LLM analysis | 대기 |
