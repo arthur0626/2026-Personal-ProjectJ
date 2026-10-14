@@ -358,3 +358,74 @@ Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 �
 - 탈퇴 시 글 처리 정책(삭제 또는 익명화)은 Milestone 3에서 결정한다.
 - 다음은 Milestone 5(Activity/Coding 도메인)이며 외부 연동이 필요 없다.
   Milestone 3은 계속 마지막 순서다.
+
+## 학습 기록 — 2026-10-14 (Milestone 4.5a·5 — 블로그 에디터·댓글, 코딩 도메인)
+
+### 오늘 한 것
+
+1. 폰에서 진행 상황을 보도록 Remote Control을 연결했다. 푸시 알림은
+   `/config`에서 모바일 푸시가 꺼져 있어 아직 전송되지 않는다.
+2. `prd_v5.md`를 만들었다. Milestone 4.5a(에디터·첨부·댓글)를 5 앞에
+   추가하고, 블로그 UI 정리는 Milestone 10으로, Milestone 3 잔여 작업은
+   마지막으로 정리했다. `AGENTS.md`도 v5를 기준으로 바꿨다.
+3. Milestone 4.5a를 구현했다.
+   - Quill 2 에디터(CDN): 정렬, 이미지, 📎 파일 첨부, 코드 블록.
+   - 본문을 HTML로 저장하고 `nh3`로 sanitize, 기존 평문 본문은
+     마이그레이션으로 변환.
+   - 첨부 업로드(staff 전용, 10MB, 확장자 허용 목록, 이미지 EXIF 제거).
+   - 회원·비회원(닉네임 + 비밀번호) 댓글, honeypot, 삭제 권한.
+4. Milestone 5를 구현했다.
+   - `ActivityEvent`, `CodingSubmission`, `CodeAnalysis` 모델.
+   - `/coding/`(목록·직접 기록·상세), `/activity/`(타임라인).
+   - `owner_required`를 `common/`으로 옮김.
+5. 헤드리스 브라우저(Playwright)로 폰 화면 크기에서 직접 조작해 확인하고
+   스크린샷을 폰으로 받았다. 그 과정에서 버그 2개를 고쳤다.
+   - 첨부 후 커서가 이동하지 않아 파일 링크가 사진 앞에 들어가던 문제.
+   - 긴 문제 URL이 폰 화면 밖으로 넘치던 문제.
+6. 브랜치 정책을 바꿨다. Claude가 진행·테스트한 작업은 `update`에
+   커밋·push하고, owner가 직접 확인한 것만 `main`에 합친다. 테스트는
+   전체 45개가 통과했다.
+
+### 배운 내용
+
+- 에디터가 만든 HTML을 그대로 보여 주면 XSS가 된다. 허용 목록 방식
+  sanitizer(`nh3`)로 허용한 태그·속성·class만 남기고, 나머지(`<script>`,
+  `onclick`, `style`, `javascript:`/`data:` URL)는 지운다.
+- sanitize는 폼이 아니라 `BlogPost.save()`에서 한다. 폼, admin, 앞으로
+  LLM이 만드는 자동 초안이 모두 같은 검사를 지나가게 하기 위해서다.
+  템플릿의 `|safe`는 이 검사를 전제로만 쓴다.
+- 업로드 파일은 사이트와 같은 도메인에서 서빙되므로 `.html`·`.svg`를
+  받으면 그 안의 스크립트가 실행될 수 있다. 확장자 허용 목록으로 막는다.
+- 폰 사진의 EXIF에는 GPS 위치가 들어 있다. Pillow로 다시 인코딩하면
+  EXIF가 빠지는데, 회전 정보도 EXIF에 있어서 `ImageOps.exif_transpose`로
+  회전을 먼저 적용해야 사진이 눕지 않는다.
+- 비회원 댓글 비밀번호도 `make_password`로 해시해서 저장하고
+  `check_password`로 비교한다. 평문으로 저장하면 안 된다.
+- `hidden` 처리한 `required` textarea는 브라우저가 submit 자체를 막는다.
+  유효성 검사가 submit 이벤트보다 먼저 일어나기 때문이다. 서버 검증은
+  그대로 두고 브라우저 쪽 `required`만 끈다.
+- Django `forms.CharField`는 기본으로 앞뒤 공백을 지운다(`strip=True`).
+  소스 코드를 그대로 보존하려면 `strip=False`가 필요하다.
+- 조건부 `UniqueConstraint`(`condition=~Q(commit_sha='')`)를 쓰면 커밋이
+  있는 데이터만 중복을 막고, 직접 입력은 자유롭게 둘 수 있다.
+- 두 모델을 함께 만드는 함수는 `transaction.atomic`으로 묶는다. 중간에
+  실패하면 먼저 만든 `ActivityEvent`까지 롤백된다.
+- 앱끼리 서로 import하면 순환 의존이 생기기 쉽다. 여러 앱이 쓰는 코드는
+  `common/`에 두고, 의존 방향은 `coding → activity`처럼 한쪽으로만 둔다.
+- sudo 없이도 `apt-get download` + `dpkg -x`로 라이브러리를 사용자 폴더에
+  풀고 `LD_LIBRARY_PATH`로 지정해 쓸 수 있다.
+- push는 커밋을 올리는 동작이라 커밋 없이 push할 수 없다. 확정 전 작업을
+  백업하려면 별도 브랜치에 커밋해서 push한다.
+
+### 기억할 것
+
+- `main` = owner가 확인한 것, `update` = Claude가 진행·테스트한 것.
+  `update`를 `main`에 합치는 것은 owner가 직접 확인한 뒤에 한다.
+  현재 `update`에는 4.5a(`6fee01e`)와 5(`b6b5556`)가 있다.
+- 블로그 화면은 아직 기본 HTML이다. UI 정리는 Milestone 10에서 한다.
+- 남은 shortcut: 비회원 비밀번호 시도 횟수 제한 없음(Milestone 10),
+  글에서 지운 첨부 파일이 디스크에 남음(Milestone 11).
+- 다음은 Milestone 6(Celery)이고 Redis가 필요하다. PC에서
+  `sudo apt install -y redis-server`로 설치하거나, sudo 없이 사용자
+  폴더에 풀어서 띄우는 방법 중 하나를 고른다.
+- 폰으로 푸시 알림을 받으려면 PC에서 `/config`로 모바일 푸시를 켠다.
