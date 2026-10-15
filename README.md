@@ -2,7 +2,7 @@
 
 `prd_v5.md`를 기준으로 개발하는 Django 기반 Personal DevOS입니다.
 
-현재 구현 범위는 **Milestone 5 — Activity and coding domain**까지입니다. Milestone 3의
+현재 구현 범위는 **Milestone 6 — Celery foundation**까지입니다. Milestone 3의
 남은 계정 보안 작업(재연결, 탈퇴)은 owner 결정으로 마지막에 진행합니다.
 
 ## 기술 기반
@@ -10,7 +10,7 @@
 - Python virtual environment: `venv/`
 - Django
 - PostgreSQL
-- Redis + Celery 기반을 위한 설정
+- Redis(브로커) + Celery(백그라운드 작업)
 - Django templates
 - 모듈형 monolith 구조
 
@@ -29,6 +29,14 @@ venv/bin/pip install -r requirements.txt
 venv/bin/python manage.py check
 venv/bin/python manage.py migrate
 venv/bin/python manage.py runserver
+```
+
+백그라운드 작업은 별도 터미널에서 Celery 워커를 띄워야 실행됩니다.
+워커가 없으면 작업은 Redis 큐에 남아 있다가 워커가 켜질 때 처리됩니다.
+
+```bash
+redis-cli ping                                   # PONG이면 Redis 실행 중
+venv/bin/celery -A config worker -l info
 ```
 
 현재 PostgreSQL 서버가 실행 중이지 않으면 `check`는 통과할 수 있지만,
@@ -110,6 +118,19 @@ Milestone 7부터 채웁니다.
   항상 "AI가 생성한 분석, 검토 필요" 문구가 붙습니다.
 - `/coding/`, `/activity/`는 staff 전용이며 자기 데이터만 보입니다. 이벤트·제출의
   `user`는 탈퇴 정책 확정 전까지 `PROTECT`입니다.
+
+## Milestone 6 설계 메모
+
+- Redis는 Celery 브로커로만 씁니다. 작업 결과는 PostgreSQL에 저장하므로 result
+  backend는 두지 않습니다. 큐 유실에 대비해 Redis AOF(`appendonly yes`)를 켭니다.
+- `common.ProcessingRun`이 작업 1건의 상태·시도 횟수·실패 사유를 기록합니다
+  (Celery 내부를 대체하지 않는 제품 수준 기록). 작업은 `run.track()` 안에서 실행하면
+  시작·성공·실패가 기록되고, 예외는 로그를 남긴 뒤 다시 던집니다.
+- 대표 작업은 제출 상세의 "AI 분석 요청"(`coding.tasks.analyze_submission`)입니다.
+  요청은 run 기록과 큐 등록만 하고 바로 응답합니다. LLM 호출은 Milestone 8에서
+  채우며, 그 전까지는 "LLM provider is not configured" 실패가 기록되는 것이 정상입니다.
+- Redis가 꺼져 있으면 요청은 실패하지 않고 run이 "Broker unavailable"로 기록됩니다.
+- 재시도(backoff)는 실제 실패 유형(LLM·GitHub API)을 아는 Milestone 7·8에서 붙입니다.
 
 ## 중요한 규칙
 

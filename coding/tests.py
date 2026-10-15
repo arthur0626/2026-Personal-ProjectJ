@@ -1,14 +1,20 @@
 from datetime import timedelta
+from unittest import mock
 
 from django.contrib.auth import get_user_model
 from django.db import IntegrityError
-from django.test import TestCase
+from django.core.exceptions import ImproperlyConfigured
+from django.test import TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
+from kombu.exceptions import OperationalError
+
 from activity.models import ActivityEvent
+from common.models import ProcessingRun
 
 from .models import CodeAnalysis, CodingSubmission
+from .tasks import analyze_submission
 
 SOURCE = 'def solve():\n\tif a < b:\n\t\treturn "<script>"   \n\n'
 
@@ -103,3 +109,61 @@ class TimelineTests(CodingTestCase):
         page = self.client.get(reverse('activity:timeline')).content.decode()
         self.assertLess(page.index('NEWER-ONE'), page.index('OLDER-ONE'))
         self.assertNotIn('someone-else', page)
+
+
+@mock.patch('coding.views.analyze_submission.delay')
+class AnalysisRequestTests(CodingTestCase):
+    def setUp(self):
+        super().setUp()
+        self.submission = self.record()
+        self.url = reverse('coding:request_analysis', args=[self.submission.pk])
+
+    def test_request_enqueues_and_returns_without_running_the_task(self, delay):
+        self.client.force_login(self.owner)
+        response = self.client.post(self.url)
+        self.assertRedirects(response, reverse('coding:detail', args=[self.submission.pk]))
+        run = ProcessingRun.objects.get()
+        delay.assert_called_once_with(run.pk)
+        self.assertEqual((run.status, run.attempts, run.related_object), ('queued', 0, self.submission))
+        self.assertContains(self.client.get(response.url), '시도 0회')
+
+    def test_broker_outage_marks_run_failed(self, delay):
+        delay.side_effect = OperationalError('connection refused')
+        self.client.force_login(self.owner)
+        self.client.post(self.url)
+        run = ProcessingRun.objects.get()
+        self.assertEqual(run.status, 'failed')
+        self.assertIn('Broker unavailable', run.error_summary)
+
+    def test_only_owner_may_post(self, delay):
+        self.assertEqual(self.client.post(self.url).status_code, 302)
+        self.client.force_login(self.other)
+        self.assertEqual(self.client.post(self.url).status_code, 404)
+        self.client.force_login(self.owner)
+        self.assertEqual(self.client.get(self.url).status_code, 405)
+        delay.assert_not_called()
+
+
+class AnalyzeTaskTests(CodingTestCase):
+    def run_for(self, submission):
+        return ProcessingRun.objects.create(
+            user=self.owner, run_type='coding.analyze', related_object=submission
+        )
+
+    @override_settings(LLM_PROVIDER='')
+    def test_failure_is_recorded_and_reraised(self):
+        run = self.run_for(self.record())
+        with self.assertLogs('common.models', 'ERROR'), self.assertRaises(ImproperlyConfigured):
+            analyze_submission(run.pk)
+        run.refresh_from_db()
+        self.assertEqual((run.status, run.attempts), ('failed', 1))
+        self.assertIn('LLM provider is not configured', run.error_summary)
+        self.assertIsNotNone(run.finished_at)
+
+    @override_settings(LLM_PROVIDER='mock')
+    def test_success_is_recorded_and_retry_counts_attempts(self):
+        run = self.run_for(self.record())
+        analyze_submission(run.pk)
+        analyze_submission(run.pk)
+        run.refresh_from_db()
+        self.assertEqual((run.status, run.attempts, run.error_summary), ('succeeded', 2, ''))

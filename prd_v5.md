@@ -29,7 +29,7 @@
 | 4 | Native blog | 완료 |
 | 4.5a | 블로그 에디터·첨부·댓글 | 구현 완료 (`update`, owner 확인 대기) |
 | 5 | Activity and coding domain | 구현 완료 (`update`, owner 확인 대기) |
-| 6 | Celery foundation | 대기 |
+| 6 | Celery foundation | 구현 완료 (`update`, owner 확인 대기) |
 | 7 | GitHub webhook ingestion | 대기 |
 | 8 | LLM analysis | 대기 |
 | 9 | Automated blog draft | 대기 |

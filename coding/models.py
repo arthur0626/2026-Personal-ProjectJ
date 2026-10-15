@@ -1,8 +1,10 @@
 from django.conf import settings
+from django.contrib.contenttypes.fields import GenericRelation
 from django.db import models, transaction
 from django.db.models import Q
 
 from activity.models import ActivityEvent
+from common.models import ProcessingRun
 
 
 class CodingSubmission(models.Model):
@@ -39,6 +41,7 @@ class CodingSubmission(models.Model):
     ingestion_status = models.CharField(
         max_length=20, choices=IngestionStatus.choices, default=IngestionStatus.PENDING
     )
+    processing_runs = GenericRelation(ProcessingRun)
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 

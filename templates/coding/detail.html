@@ -39,6 +39,19 @@
       {% empty %}
         <p>아직 분석이 없습니다. LLM 분석은 Milestone 8에서 연결됩니다.</p>
       {% endfor %}
+      <form method="post" action="{% url 'coding:request_analysis' submission.pk %}">
+        {% csrf_token %}
+        <button type="submit">AI 분석 요청</button>
+      </form>
+
+      <h2>처리 기록</h2>
+      <ul>
+        {% for run in runs %}
+          <li>{{ run.created_at|date:'Y-m-d H:i:s' }} · {{ run.get_status_display }} · 시도 {{ run.attempts }}회{% if run.error_summary %} · {{ run.error_summary }}{% endif %}</li>
+        {% empty %}
+          <li>아직 처리 기록이 없습니다.</li>
+        {% endfor %}
+      </ul>
       <a href="{% url 'coding:index' %}">코딩 기록으로</a>
     </main>
   </body>
