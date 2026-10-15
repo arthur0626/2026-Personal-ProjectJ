@@ -73,6 +73,8 @@ LLM_MODEL = env('LLM_MODEL', default='')
 LLM_API_KEY = env('LLM_API_KEY', default='')
 LLM_TIMEOUT_SECONDS = env.int('LLM_TIMEOUT_SECONDS', default=60)
 CELERY_BROKER_URL = env('CELERY_BROKER_URL', default='redis://127.0.0.1:6379/0')
+# Results live in PostgreSQL (ProcessingRun); no Celery result store, even if one is configured.
+CELERY_TASK_IGNORE_RESULT = True
 CELERY_TASK_ALWAYS_EAGER = env.bool('CELERY_TASK_ALWAYS_EAGER', default=False)
 CELERY_TASK_EAGER_PROPAGATES = env.bool('CELERY_TASK_EAGER_PROPAGATES', default=True)
 
