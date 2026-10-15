@@ -1,6 +1,7 @@
+import logging
+
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.decorators.http import require_POST
-from kombu.exceptions import OperationalError
 
 from common.decorators import owner_required
 from common.models import ProcessingRun
@@ -8,6 +9,8 @@ from common.models import ProcessingRun
 from .forms import SubmissionForm
 from .models import CodingSubmission
 from .tasks import analyze_submission
+
+logger = logging.getLogger(__name__)
 
 
 @owner_required
@@ -49,7 +52,8 @@ def request_analysis(request, pk):
     )
     try:
         analyze_submission.delay(run.pk)
-    except OperationalError as exc:
-        # Broker down: record it instead of leaving the run queued forever.
-        run.fail(f'Broker unavailable: {exc}')
+    except Exception as exc:
+        # Any enqueue failure must not leave the run queued forever with no message in Redis.
+        logger.exception('Could not enqueue ProcessingRun %s', run.pk)
+        run.fail(f'Enqueue failed: {type(exc).__name__}: {exc}')
     return redirect('coding:detail', pk=pk)

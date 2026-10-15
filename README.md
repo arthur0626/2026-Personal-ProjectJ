@@ -129,7 +129,8 @@ Milestone 7부터 채웁니다.
 - 대표 작업은 제출 상세의 "AI 분석 요청"(`coding.tasks.analyze_submission`)입니다.
   요청은 run 기록과 큐 등록만 하고 바로 응답합니다. LLM 호출은 Milestone 8에서
   채우며, 그 전까지는 "LLM provider is not configured" 실패가 기록되는 것이 정상입니다.
-- Redis가 꺼져 있으면 요청은 실패하지 않고 run이 "Broker unavailable"로 기록됩니다.
+- 큐 등록이 어떤 이유로든 실패하면 요청은 오류 없이 돌아오고 run이 "Enqueue failed"로
+  기록됩니다(전체 traceback은 서버 로그). "대기"로 남은 채 큐에 없는 run이 생기지 않게 합니다.
 - 재시도(backoff)는 실제 실패 유형(LLM·GitHub API)을 아는 Milestone 7·8에서 붙입니다.
 
 ## 중요한 규칙

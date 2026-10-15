@@ -127,13 +127,17 @@ class AnalysisRequestTests(CodingTestCase):
         self.assertEqual((run.status, run.attempts, run.related_object), ('queued', 0, self.submission))
         self.assertContains(self.client.get(response.url), '시도 0회')
 
-    def test_broker_outage_marks_run_failed(self, delay):
-        delay.side_effect = OperationalError('connection refused')
+    def test_any_enqueue_failure_marks_run_failed(self, delay):
         self.client.force_login(self.owner)
-        self.client.post(self.url)
-        run = ProcessingRun.objects.get()
-        self.assertEqual(run.status, 'failed')
-        self.assertIn('Broker unavailable', run.error_summary)
+        for error in (OperationalError('connection refused'), ConnectionError('reset')):
+            delay.side_effect = error
+            with self.assertLogs('coding.views', 'ERROR'):
+                response = self.client.post(self.url)
+            self.assertEqual(response.status_code, 302)
+        self.assertEqual(
+            list(ProcessingRun.objects.values_list('status', flat=True)), ['failed', 'failed']
+        )
+        self.assertIn('Enqueue failed: ConnectionError', ProcessingRun.objects.first().error_summary)
 
     def test_only_owner_may_post(self, delay):
         self.assertEqual(self.client.post(self.url).status_code, 302)
