@@ -429,3 +429,68 @@ Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 �
   `sudo apt install -y redis-server`로 설치하거나, sudo 없이 사용자
   폴더에 풀어서 띄우는 방법 중 하나를 고른다.
 - 폰으로 푸시 알림을 받으려면 PC에서 `/config`로 모바일 푸시를 켠다.
+
+## 학습 기록 — 2026-10-15 (Milestone 6 — Celery foundation)
+
+### 오늘 한 것
+
+1. Milestone 6 시작 전에 Redis, 브로커, Celery의 역할을 공부했다.
+2. PC에 Redis 8.0.5를 설치했고(`sudo apt install redis-server`), AOF 영속화
+   (`appendonly yes`)를 켰다. venv에 빠져 있던 `redis` Python 패키지도 설치했다.
+3. `common.ProcessingRun`을 추가했다. 백그라운드 작업 1건의 상태, 시도 횟수,
+   시작·종료 시각, 실패 사유를 PostgreSQL에 남긴다.
+4. 코딩 제출 상세 화면에 "AI 분석 요청" 버튼과 "처리 기록" 목록을 추가했다.
+   요청은 작업 쪽지를 큐에 넣고 바로 응답하고, 실제 처리는 Celery 워커가 한다.
+   LLM은 Milestone 8에서 연결하므로, 지금은 "LLM provider is not configured"
+   실패가 기록되는 것이 정상이다.
+5. owner 장애 테스트에서 결함 2개를 찾아 고쳤다(아래 "디버깅 기록").
+6. Milestone 4.5a, 5, 6을 owner가 확인했고 `update`를 `main`에 fast-forward로
+   병합했다. 테스트 50개 통과.
+
+### 배운 내용
+
+- **Redis**는 RAM에 데이터를 저장하는 키-값 저장소다. 쓰임새는 크게 두 가지다.
+  하나는 캐시(자주 읽는 DB 데이터를 복사해 둠, "윤활제" 역할)이고, 다른 하나는
+  브로커(할 일 쪽지 보관, "주문표 꽂이" 역할)다. 이 프로젝트는 브로커로만 쓴다.
+- **브로커**는 일을 시키는 쪽(생산자, Django)과 일을 하는 쪽(소비자, 워커) 사이에서
+  메시지를 맡아 두는 중간 보관소다. 하는 일은 받기, 보관, 넘기기뿐이다.
+  양쪽을 분리하는 장치이지 백업 장치가 아니다. 브로커 자체도 단일 장애점(SPOF)이 된다.
+- 비동기로 처리하면 브로커의 "속도"는 거의 의미가 없다. 큐가 필요한 진짜 이유는
+  "대기 시간"이다. GitHub webhook은 응답을 약 10초까지만 기다리고, LLM 호출은
+  수십 초가 걸린다.
+- Celery를 쓰는 가치는 재시도, 실패 처리, 예약 실행 같은 기능에 있다. Redis는
+  Celery를 돌리는 연료통일 뿐이다. Celery를 안 쓰면 Redis도 필요 없다
+  (대안: PostgreSQL 상태 컬럼 + 간단한 워커).
+- 브로커 안정성을 높이려면 직렬 연결이 아니라 병렬 복제(Replication + Sentinel)를
+  쓴다. 직렬로 연결하면 장애 지점이 오히려 늘어난다. 이 프로젝트는 원본이
+  PostgreSQL에 있으니 Redis 1대 + AOF로 충분하다.
+- 세 프로그램의 역할: Redis(`systemctl`로 관리하는 OS 서비스), Django
+  (`runserver`), Celery 워커(`celery -A config worker -l info`, `-l`은 소문자 L).
+
+### 디버깅 기록 — Redis를 끄면 기록이 "대기"로 남던 문제
+
+- **증상**: Redis를 끈 상태에서 분석 요청을 하면 노란 오류 화면이 뜨고, 기록은
+  "대기"로 남아 영원히 처리되지 않았다. Redis를 다시 켜도 `runserver`를
+  재시작해야만 복구됐다.
+- **원인**: `.env`의 `CELERY_RESULT_BACKEND` 때문이었다. 이 값이 있으면 Celery는
+  작업을 브로커에 넣기 **전에** 결과 저장소(같은 Redis)에 먼저 구독 연결을 한다.
+  여기서 `RuntimeError`가 났는데, 코드는 브로커 오류(`OperationalError`)만
+  대비하고 있었다. 또 Celery는 `settings.py`보다 **환경 변수**를 먼저 읽어서,
+  설정 파일에서 지워도 `.env`에 남은 값이 계속 쓰였다. 결과 저장소 연결은 한 번
+  고장 나면 다시 연결하지 않아서("must be restarted") 재시작이 필요했다.
+- **해결**: 큐 등록이 어떤 이유로든 실패하면 기록을 "Enqueue failed"로 남기고 로그를
+  찍게 했다. 그리고 `CELERY_TASK_IGNORE_RESULT = True`로 결과 저장소를 아예 쓰지
+  않게 했다(결과는 PostgreSQL에 저장). 이제 Redis를 껐다 켜도 재시작 없이 복구된다.
+- **교훈**: 내가 만든 재현 환경이 실제와 달랐다(브로커만 끄고 결과 저장소는 살아
+  있었음). 그래서 처음에는 재현에 실패했다. 실제 traceback을 받아서야 원인이
+  보였다.
+
+### 기억할 것
+
+- 개발할 때는 터미널 2개(runserver, worker)와 Redis 서비스가 필요하다.
+  `redis-cli ping` → `PONG`이면 Redis가 켜진 상태다.
+- 정상 상태 확인: 평상시 = ImproperlyConfigured(LLM 미설정), 워커 꺼짐 = 대기,
+  Redis 꺼짐 = Enqueue failed.
+- 재시도(backoff)는 실패 유형을 아는 Milestone 7·8에서 붙인다.
+- 다음은 Milestone 7(GitHub webhook)이다. 시작하면 Checkpoint B에서 실제 저장소,
+  풀이 파일 예시, webhook 수신 주소(터널)를 정해야 한다.
