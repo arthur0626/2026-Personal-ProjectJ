@@ -25,8 +25,9 @@
    redirect가 실제 고정 HTTPS 주소를 쓰게 하기 위해서다. Milestone 10의
    "Dockerfile·Compose 검증"도 이때 함께 한다. 대시보드·UI 정리는 그대로
    Milestone 10에 남는다.
-2. **Checkpoint D**: 배포 대상은 AWS EC2 1대(`docker compose`), 도메인은
-   owner가 구매한다(Route 53 권장). Kubernetes·자동 배포(CD)는 하지 않는다.
+2. **Checkpoint D**: 배포 대상은 AWS EC2 1대(`docker compose`, 서울 리전).
+   도메인은 우선 무료 DuckDNS(`arthur0626.duckdns.org`)를 쓰고, 유료
+   도메인 전환은 12/05 전에 검토한다. Kubernetes·자동 배포(CD)는 하지 않는다.
    테스트 자동화(CI, GitHub Actions)는 허용한다. Terraform은 11/09 이후 검토한다.
 3. **Checkpoint B**: 풀이 저장소는 `arthur0626/2026-Coding-Test`다.
    BaekjoonHub가 안정적이지 않으므로 Milestone 7을 다음 두 단계로 바꾼다.
