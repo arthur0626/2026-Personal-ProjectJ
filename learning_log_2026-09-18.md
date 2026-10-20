@@ -494,3 +494,83 @@ Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 �
 - 재시도(backoff)는 실패 유형을 아는 Milestone 7·8에서 붙인다.
 - 다음은 Milestone 7(GitHub webhook)이다. 시작하면 Checkpoint B에서 실제 저장소,
   풀이 파일 예시, webhook 수신 주소(터널)를 정해야 한다.
+
+## 학습 기록 — 2026-10-20 (Milestone 11 — 첫 배포: Docker·EC2·DuckDNS·HTTPS)
+
+### 오늘 한 것
+
+1. learning log에 평문으로 남아 있던 로컬 계정 비밀번호를 지웠다. Git 첫 커밋
+   기록에는 남아 있으므로, 히스토리를 고쳐 쓰는 대신 비밀번호를 바꾸기로 했다
+   (`manage.py changepassword arthur0626`).
+2. 계획을 바꿨다(`prd_v5.md` "2026-10-20 결정 사항"). 배포를 Milestone 7 앞으로
+   당겼다. Milestone 7은 7a(사이트에 붙여넣은 풀이를 서버가 GitHub에 커밋, 필수)와
+   7b(GitHub push webhook 수신, 시간 되면)로 나눴다. 풀이 저장소는
+   `arthur0626/2026-Coding-Test`다. CI는 하고, Kubernetes와 자동 배포(CD)는 하지
+   않으며, Terraform은 11/09 이후에 검토한다.
+3. 운영용 Docker 묶음을 만들었다. `Dockerfile`(gunicorn), `compose.prod.yml`
+   (web·worker·postgres·redis·caddy), `deploy/Caddyfile`(HTTPS 자동 발급,
+   정적·업로드 파일 제공). 로컬에서 먼저 띄워 검증했다(쉴 때 전체 메모리 약 310MB).
+4. AWS에 가입해 MFA와 월 $10 예산 알림을 설정했다. 서울 리전에 EC2 `ProjectJ`
+   (Ubuntu 26.04, t3.micro, 디스크 20GB)를 만들고, 탄력적 IP를 붙이고,
+   swap 2GB를 추가했다.
+5. 무료 도메인 `arthur0626.duckdns.org`를 만들어 서버 IP에 연결했다.
+6. 서버에 Docker를 설치하고, 코드를 받고, `.env`를 서버에서 직접 작성한 뒤
+   `docker compose -f compose.prod.yml up -d --build`로 실행했다.
+   https://arthur0626.duckdns.org 이 Let's Encrypt 인증서로 열렸다.
+7. Kakao 콘솔의 REST API 키에 운영 redirect URI를 추가했고, 운영 사이트에서
+   Kakao 로그인이 동작했다.
+
+### 배운 내용
+
+- **EC2와 Docker는 층이 다르다.** EC2는 빌린 컴퓨터(주방)이고, Docker는 그 위에서
+  앱을 포장해 돌리는 도구(밀키트)다. 같은 이미지라서 로컬에서 확인한 스택이
+  서버에서도 그대로 돈다. 서버 OS를 WSL과 같은 Ubuntu 26.04로 맞추니 Docker
+  버전(29.1.3)도 똑같이 설치됐다.
+- 만드는 것은 윈도우 프로그램이 아니다. 개발 환경인 WSL 자체가 Ubuntu
+  리눅스이고, 컨테이너 내부도 리눅스다. 서버로 리눅스를 쓰는 이유는 무료,
+  가벼움, 업계 표준이기 때문이다.
+- **보안 그룹**은 기본이 "전부 차단"이고, 연 포트만 들어올 수 있다. SSH(22)는
+  내 IP만, HTTP(80)·HTTPS(443)는 전체에 열었다. 80번은 http → https 이동과
+  인증서 발급에 필요하다.
+- **키 페어**는 내 PC에서 서버 터미널에 들어갈 때(SSH)만 쓴다. 서버에는
+  자물쇠(공개 키)가 있고, 나는 열쇠(`.pem`, 개인 키)를 가진다. 열쇠 파일은
+  `chmod 600`이어야 SSH가 받아 준다.
+- **탄력적 IP**는 재시작해도 바뀌지 않는 고정 주소다. 도메인(A 레코드)이 이
+  IP를 가리킨다. 2024년부터 공인 IPv4는 연결 여부와 상관없이 시간당 과금된다.
+- 요금: 인스턴스는 켜져 있는 동안 초 단위로 과금된다. 중지하면 서버 요금은
+  멈추지만 디스크와 IP 요금은 남는다. 완전히 그만둘 때는 인스턴스 종료와
+  탄력적 IP 릴리스를 둘 다 해야 한다. 사양(micro ↔ small)은 중지 후 바꿀 수
+  있고, OS와 리전은 새로 만들어야 한다.
+- **Caddy**는 리버스 프록시다. 바깥의 HTTPS 요청을 받아 gunicorn(web:8000)으로
+  넘긴다. Nginx와 달리 certbot 없이 Let's Encrypt 인증서를 자동으로 발급하고
+  갱신한다. Django는 프록시 뒤에 있으므로 `X-Forwarded-Proto` 헤더로 원래
+  요청이 https였는지 판단한다(`SECURE_PROXY_SSL_HEADER`).
+- 운영에서는 `runserver` 대신 gunicorn(WSGI 서버)을 쓴다. `runserver`는
+  개발용이라 성능과 보안이 운영에 맞지 않는다.
+- **코드, 데이터, 설정은 따로 움직인다.** 코드는 Git으로 서버에 가지만, 데이터
+  (DB, 업로드 파일)와 설정(`.env`)은 가지 않는다. 일부러 그렇게 한다. 운영 DB는
+  빈 상태로 시작하고, `.env`는 환경마다 값이 달라야 하며(DEBUG, 도메인, DB
+  비밀번호), 비밀 값은 공개 저장소에 올리면 안 된다. 이것을 12-Factor App의
+  Config 원칙이라고 한다.
+- Django의 `migrate`는 데이터를 옮기는 것이 아니라 테이블 구조를 만드는
+  것이다. 서버에서는 web 컨테이너가 시작할 때 자동으로 실행된다.
+- Kakao 콘솔은 2025년 개편 후 설정이 앱 키별로 나뉘었다. 서버 로그인
+  (allauth)은 REST API 키의 리다이렉트 URI만 등록하면 된다. 예전 "사이트
+  도메인"은 JavaScript SDK 도메인으로 바뀌었고 이 프로젝트에는 필요 없다.
+- 도메인: 무료(DuckDNS)와 유료는 HTTPS, OAuth, webhook 등 기술적으로 같다.
+  다른 점은 소유권, 신뢰도와 인상, 일부 회사 방화벽 차단 가능성이다. 나중에
+  바꾸려면 `.env` 3개 값과 Kakao redirect URI만 고치면 된다.
+
+### 기억할 것
+
+- 서버 접속: `ssh -i ~/.ssh/ProjectJ.pem ubuntu@3.39.140.204`
+- 서버 코드 위치는 `~/devos`이고 현재 `update` 브랜치를 받는다(main 병합 후
+  main으로 바꾼다).
+- 업데이트 배포: `cd ~/devos && git pull && docker compose -f compose.prod.yml up -d --build`
+- 상태와 로그: `docker compose -f compose.prod.yml ps`,
+  `docker compose -f compose.prod.yml logs <서비스> --tail 30`
+- 운영 DB와 업로드 파일은 아직 백업이 없다. 백업(EBS 스냅샷)을 하기 전에는
+  실제 글을 쓰지 않는다.
+- 다음(10/21): EBS 스냅샷 백업, 운영 관리자·dev 계정 정리, 사이트 둘러보기
+  (글 쓰기, 이미지 업로드), owner 확인 후 `main` 병합. 그다음은 CI와
+  Milestone 7a.
