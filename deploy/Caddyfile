@@ -1,0 +1,15 @@
+# Caddy obtains and renews the Let's Encrypt certificate for SITE_DOMAIN itself.
+{$SITE_DOMAIN} {
+	encode gzip
+	handle_path /static/* {
+		root * /srv/static
+		file_server
+	}
+	handle_path /media/* {
+		root * /srv/media
+		file_server
+	}
+	handle {
+		reverse_proxy web:8000
+	}
+}

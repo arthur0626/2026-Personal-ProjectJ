@@ -1,0 +1,10 @@
+.git
+.env
+.env.*
+venv
+media
+staticfiles
+__pycache__
+*.pyc
+.vscode
+.codex

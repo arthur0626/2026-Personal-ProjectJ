@@ -2,7 +2,7 @@
 
 ## 문서 상태
 
-이 문서는 2026-10-14 결정 사항을 반영한 최신 작업 계획이다.
+이 문서는 2026-10-14, 2026-10-20 결정 사항을 반영한 최신 작업 계획이다.
 `prd_v5.md`를 현재 작업 계획의 기준으로 사용한다. 제품 요구사항, 보안
 원칙, human checkpoint, 마일스톤 정의는 `prd_v3.md`(및 `prd_v2.md`)를
 계승하고, 인증·계정 정책은 `prd_v4.md`를 계승한다. 이 문서와 이전 문서가
@@ -19,6 +19,34 @@
 4. Phase 1 범위에 리치 텍스트 본문, 이미지·파일 첨부, 댓글(회원·비회원)을
    추가한다. 그 외 금지 범위(`AGENTS.md`의 v2 scope)는 그대로 유지한다.
 
+## 2026-10-20 결정 사항
+
+1. **배포(Milestone 11)를 Milestone 7 앞으로 당긴다.** webhook 수신과 Kakao
+   redirect가 실제 고정 HTTPS 주소를 쓰게 하기 위해서다. Milestone 10의
+   "Dockerfile·Compose 검증"도 이때 함께 한다. 대시보드·UI 정리는 그대로
+   Milestone 10에 남는다.
+2. **Checkpoint D**: 배포 대상은 AWS EC2 1대(`docker compose`), 도메인은
+   owner가 구매한다(Route 53 권장). Kubernetes·자동 배포(CD)는 하지 않는다.
+   테스트 자동화(CI, GitHub Actions)는 허용한다. Terraform은 11/09 이후 검토한다.
+3. **Checkpoint B**: 풀이 저장소는 `arthur0626/2026-Coding-Test`다.
+   BaekjoonHub가 안정적이지 않으므로 Milestone 7을 다음 두 단계로 바꾼다.
+   - **7a — 사이트 → GitHub 커밋 (필수)**: owner가 사이트에 풀이를
+     붙여넣으면 서버가 GitHub Contents API로 저장소에 커밋하고 커밋 SHA와
+     파일 경로를 `CodingSubmission`에 저장한다. 경로는 BaekjoonHub 형식
+     (`SWEA/D1/2063. 중간값 찾기/중간값 찾기.cpp`)을 따른다. 소스 코드만
+     올리고 문제 본문(README)은 올리지 않는다. 다른 사이트(SWEA,
+     프로그래머스)의 코드를 자동으로 읽는 기능은 만들지 않는다(브라우저
+     수집기 금지).
+   - **7b — GitHub → 사이트 webhook (시간이 되면 11/09 전, 아니면 12/05
+     전)**: 서명된 push webhook을 받아, 사이트를 거치지 않은 커밋은 새
+     기록으로 만들고 7a가 만든 커밋(같은 저장소·SHA·경로)은 멱등하게
+     무시한다. 기존 `prd_v3.md` Milestone 7 요구사항(서명 검증, 멱등성,
+     저장소·브랜치 필터)은 7b에 적용한다.
+   - 필요한 secret: 이 저장소에만 Contents 쓰기 권한이 있는 GitHub
+     fine-grained token (`GITHUB_ACCESS_TOKEN`). 7a 시작 시 owner가 발급한다.
+4. Phase 1 완료 기준 1번("signed GitHub webhook으로 유입")은 "사이트 입력 후
+   GitHub 커밋(7a) 또는 signed webhook(7b)으로 유입"으로 바꾼다.
+
 ## 현재 마일스톤 순서
 
 | 순서 | 마일스톤 | 상태 |
@@ -30,12 +58,13 @@
 | 4.5a | 블로그 에디터·첨부·댓글 | 완료 |
 | 5 | Activity and coding domain | 완료 |
 | 6 | Celery foundation | 완료 |
-| 7 | GitHub webhook ingestion | 대기 |
+| 11 | Deployment (Docker·EC2·도메인·HTTPS) | 진행 중 |
+| 7a | 사이트 → GitHub 커밋 | 대기 |
+| 7b | GitHub → 사이트 webhook | 시간이 되면 |
 | 8 | LLM analysis | 대기 |
 | 9 | Automated blog draft | 대기 |
 | 10 | Dashboard and hardening + 블로그 UI 정리 | 대기 |
 | 3 잔여 | 계정 보안(재연결·탈퇴·마지막 수단 잠금) | 마지막 |
-| 11 | Deployment | 대기 |
 
 각 마일스톤의 작업 절차와 owner 확인 규칙은 `prd_v3.md`의
 "Revised working procedure"를 따른다.

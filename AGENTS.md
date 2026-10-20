@@ -5,8 +5,9 @@
 `prd_v5.md` is the implementation source of truth. It keeps the product
 requirements of `prd_v2.md`/`prd_v3.md` and the account policy of
 `prd_v4.md`, and sets the current milestone order (4.5a blog editor,
-attachments and comments before Milestone 5; account-security leftovers of
-Milestone 3 last).
+attachments and comments before Milestone 5; deployment before Milestone 7,
+which is split into 7a site-to-GitHub commits and 7b webhook ingestion;
+account-security leftovers of Milestone 3 last).
 Work one milestone at a time and stop for owner confirmation at each
 milestone boundary.
 

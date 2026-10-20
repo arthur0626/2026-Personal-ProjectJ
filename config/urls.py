@@ -11,5 +11,5 @@ urlpatterns = [
     path('blog/', include('blog.urls')),
     path('coding/', include('coding.urls')),
     path('activity/', include('activity.urls')),
-    # Serves uploads only when DEBUG; production storage is decided in Milestone 11.
+    # Serves uploads only when DEBUG; in production Caddy serves /media/ from a volume.
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

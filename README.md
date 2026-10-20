@@ -2,7 +2,7 @@
 
 `prd_v5.md`를 기준으로 개발하는 Django 기반 Personal DevOS입니다.
 
-현재 구현 범위는 **Milestone 6 — Celery foundation**까지입니다. Milestone 3의
+현재 구현 범위는 **Milestone 6 — Celery foundation**까지이며, 배포(Milestone 11)를 진행 중입니다. Milestone 3의
 남은 계정 보안 작업(재연결, 탈퇴)은 owner 결정으로 마지막에 진행합니다.
 
 ## 기술 기반
@@ -41,6 +41,22 @@ venv/bin/celery -A config worker -l info
 
 현재 PostgreSQL 서버가 실행 중이지 않으면 `check`는 통과할 수 있지만,
 `migrate`와 테스트는 DB 연결 오류로 실패합니다.
+
+## 운영 배포 (EC2 1대)
+
+`compose.prod.yml`이 web(gunicorn), worker(Celery), PostgreSQL, Redis,
+Caddy(HTTPS 자동 발급)를 함께 띄웁니다. 개발용 `docker-compose.yml`과
+로컬 개발 방식은 바뀌지 않습니다.
+
+```bash
+# 서버에서: 저장소를 받고 .env를 만든 뒤 (DJANGO_DEBUG=False, SITE_DOMAIN,
+# DJANGO_ALLOWED_HOSTS, DJANGO_CSRF_TRUSTED_ORIGINS=https://도메인, POSTGRES_*)
+docker compose -f compose.prod.yml up -d --build
+docker compose -f compose.prod.yml exec web python manage.py createsuperuser
+```
+
+도메인의 A 레코드가 서버 IP를 가리키고 80·443 포트가 열려 있어야
+인증서가 발급됩니다.
 
 ## 테스트
 
