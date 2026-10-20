@@ -121,7 +121,7 @@ Ran 6 tests in 0.817s
 OK
 ```
 
-- 실제 웹 화면에서 `arthur0626 / qwer0626` 계정 가입까지 완료하여 회원가입 기능을 확인했다.
+- 실제 웹 화면에서 `arthur0626` 계정 가입까지 완료하여 회원가입 기능을 확인했다.
 - PostgreSQL 테스트 데이터베이스의 생성·삭제 이유와 Django `default` database alias의 의미를 공부했다.
 - `DATABASE_URL`의 URI 구조와 다른 서비스에서도 유사한 연결 문자열을 사용한다는 점을 공부했다.
 
