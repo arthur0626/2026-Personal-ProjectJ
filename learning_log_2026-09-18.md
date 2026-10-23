@@ -574,3 +574,88 @@ Milestone 3 실작업 전에, Claude Code 모델 선택과 프로젝트 운영 �
 - 다음(10/21): EBS 스냅샷 백업, 운영 관리자·dev 계정 정리, 사이트 둘러보기
   (글 쓰기, 이미지 업로드), owner 확인 후 `main` 병합. 그다음은 CI와
   Milestone 7a.
+
+## 학습 기록 — 2026-10-23 (배포 복습 + Milestone 11 마무리 1: 백업)
+
+### 오늘 한 것
+
+1. 10/20 배포를 개념부터 다시 복습했다(Linux·Docker·요청 흐름·명령어·IP와
+   도메인·HTTPS·Caddy·Celery worker).
+2. EBS 수동 스냅샷 1개를 만들었다(`ProjectJ manual 2026-10-23 before DLM`).
+3. 인스턴스 `ProjectJ`에 태그 `Backup=daily`를 붙이고, DLM 정책
+   `ProjectJ daily backup`을 만들어 활성화했다. 매일 18:00 UTC(새벽 3시
+   KST)에 찍고 최근 7개를 남긴다. 루트 볼륨은 제외하지 않는다(DB가 루트
+   볼륨에 있다).
+4. 계정 정리 개념을 정리하고, 서버 계정 목록을 확인하는 명령까지 준비했다
+   (실행은 다음 시간).
+
+### 배운 내용
+
+- **Linux와 Ubuntu**: Linux는 커널이고 Ubuntu는 Debian 계열 배포판이다
+  (커널 + apt + 기본 프로그램). Ubuntu를 많이 쓰는 이유는 자료가 많고 LTS
+  지원이 길고 AWS·WSL·Docker 문서의 기본값이기 때문이다. EC2에서는 OS를
+  설치한 게 아니라 Ubuntu AMI(미리 만든 디스크 이미지)로 시작했다.
+- **VM과 컨테이너**: VM은 하드웨어 전체를 가짜로 만들고 자기 커널을 부팅한다
+  (Mac에서 Windows 돌리기). 컨테이너는 호스트 커널을 공유하고
+  namespace(격리)와 cgroup(자원 제한)으로 칸막이를 친다. 그래서 가볍지만
+  Linux 위에서는 Linux 프로그램만 돈다. EC2 자체도 AWS 하이퍼바이저(Nitro)
+  위의 VM이고, WSL2도 가벼운 VM이다.
+- **Docker 파일 역할**: `requirements.txt` = Python 패키지 목록(pip),
+  `Dockerfile` = 이미지 하나를 만드는 레시피, `compose.prod.yml` = 컨테이너
+  여러 개의 관계(포트·볼륨·순서·환경변수), `.dockerignore` = 이미지에서 뺄
+  것. postgres·redis·caddy는 공식 이미지를 그대로 쓰고 내 코드가 들어가는
+  web·worker만 Dockerfile로 빌드한다.
+- **배포 때 코드가 넘어간 지점은 `git clone`이다.** 코드와 Dockerfile,
+  compose 파일이 함께 왔고, 서버가 `up -d --build`로 같은 레시피를 다시
+  빌드했다. 운영에서는 runserver가 아니라 gunicorn이 돈다. `-d`는
+  백그라운드 실행이라 SSH를 닫아도 사이트가 산다.
+- **`.env`를 서버에서 직접 쓴 이유**: `.gitignore`와 `.dockerignore`가 둘 다
+  `.env`를 막는다. 저장소가 public이고, 값이 환경마다 다르기 때문이다.
+  컨테이너는 실행할 때 `env_file`로 값을 받는다.
+- **IP / 탄력적 IP / 도메인**: 자동 공인 IP는 서버를 중지·시작하면 바뀐다.
+  탄력적 IP는 내 계정에 묶인 고정 공인 IP다(3.39.140.204). 도메인은 사람이
+  읽는 이름이고 DNS A 레코드가 그 IP를 가리킨다. IP로 직접 들어가면 Caddy가
+  https로 보내지만 인증서가 도메인 이름으로만 발급돼 TLS가 실패한다.
+- **HTTP와 HTTPS**: HTTP는 엽서처럼 중간(공용 와이파이 등)에서 비밀번호와
+  세션 쿠키를 그대로 읽을 수 있다(세션 하이재킹, 중간자 공격). HTTPS는 TLS로
+  암호화하고, 인증서로 **사이트의 신원**을 증명한다. 사용자는 인증서가 필요
+  없다(예외: mTLS). 인증서 경고가 뜨면 "계속 진행"을 누르지 않는다.
+- **Let's Encrypt와 Caddy**: Let's Encrypt는 무료 CA이고 인증서 유효기간은
+  90일이다. Caddy는 Caddyfile에 도메인만 적으면 ACME HTTP-01(80번 포트로
+  소유권 확인)로 인증서를 받고, 남은 기간이 약 1/3이 되면 혼자 갱신한다.
+  인증서는 `caddy_data` 볼륨에 있다. 실제 인증서: 2026-10-20 발급,
+  2027-01-18 만료, 발급자 Let's Encrypt YE1.
+- **리버스 프록시가 필요한 이유**: gunicorn은 앱 서버다. TLS, 정적·업로드
+  파일 전달, 느린 손님 버퍼링, 80/443 포트는 Caddy가 맡는다. PaaS에서는
+  플랫폼이 대신해 줬지만 EC2(IaaS)에서는 직접 세운다.
+- **worker 컨테이너**: Celery worker다. web과 같은 이미지에서 실행 명령만
+  다르다. view가 `analyze_submission.delay()`로 Redis에 작업을 넣으면 worker가
+  꺼내 처리한다. LLM 호출처럼 오래 걸리는 일 때문에 사이트가 멈추지 않게
+  한다. 컨테이너는 기술 개수가 아니라 따로 도는 역할(프로세스) 개수만큼 있다.
+- **백업**: DB와 업로드 파일은 Docker 볼륨 = EC2 디스크(EBS) 안에만 있어서
+  유일하게 되살릴 수 없는 데이터다. EBS 스냅샷은 디스크 전체의 특정 시점
+  복사본이고 S3에 따로 저장되며, 두 번째부터는 바뀐 부분만 저장한다(증분).
+  DLM은 태그로 대상을 찾아 자동으로 찍고 오래된 것을 지운다.
+  RPO(잃어도 되는 데이터 양) = 24시간, RTO(복구 시간) = 수십 분. 스냅샷은
+  crash-consistent이고 PostgreSQL은 WAL로 스스로 복구한다. DLM 시간은 UTC다.
+- "스냅샷"은 마인크래프트 스냅샷(개발 중 미리 보기 버전)과 어원은 같지만,
+  여기서는 마인크래프트 월드 폴더를 복사해 두는 것에 가깝다.
+- **비밀번호 유출 대응**: 공개 저장소의 Git 히스토리에서는 완전히 지울 수
+  없으므로 값을 바꿔서 무효화(rotate)한다. Django는 비밀번호를 PBKDF2
+  해시로 저장해서 관리자도 볼 수 없고 `changepassword`로 바꾸기만 한다.
+  `changepassword`는 비밀번호를 대화형으로 받아서 bash history에 남지 않는다.
+
+### 기억할 것
+
+- 서버에 접속할 일: 코드 바꿈 → `git pull` + `up -d --build`, 비밀 값 바꿈 →
+  `nano .env` + `up -d`, 고장 → `ps` + `logs`, 서버 끄기·켜기 → AWS 콘솔.
+- 운영에서 `docker compose down -v`는 절대 치지 않는다(DB와 인증서 볼륨 삭제,
+  Let's Encrypt는 같은 도메인 주 5회 발급 제한).
+- SSH는 보안 그룹에서 내 IP만 허용한다. 장소가 바뀌어 접속이 막히면 SSH 소스를
+  "내 IP"로 다시 저장한다.
+- 10/24 확인: 스냅샷 목록에 DLM이 만든 스냅샷이 생겼는지
+  (`aws:dlm:lifecycle-policy-id` 태그).
+- 다음(②부터 이어서): 서버 SSH → 계정 목록 확인 → 유출된 비밀번호와 같은
+  계정은 `changepassword`(운영과 로컬 `arthur0626` 둘 다) → 일반 회원 테스트
+  계정(staff 아님) 생성 → ③ 사이트 둘러보기 → ④ owner 확인 후 main 병합,
+  서버는 main 추적 → ⑤ CI. 그다음 M7a(시작 전 GitHub fine-grained 토큰 발급).
